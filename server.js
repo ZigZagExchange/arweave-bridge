@@ -63,7 +63,7 @@ app.post("/arweave/upload", upload.single('file'), async function (req, res) {
         return res.status(402).send({ error: `Insufficient funds for upload. Current allocation size is ${allocation} bytes` });
     }
 
-    const signature = req.body.signedMessage;
+    const signature = req.body.signature;
     const timestamp = parseInt(req.body.timestamp) || 0;
     const now = Date.now();
     if (Math.abs(timestamp - now) > 30000) {

@@ -12,13 +12,13 @@ const ethWallet = new ethers.Wallet(process.env.ETH_PRIVKEY);
 const timestamp = Date.now();
 const sender = "0x1998CA1E0e9D4a767359464dee60D15daa372cd1";
 const message = `${sender}:${timestamp}`;
-const signedMessage = await ethWallet.signMessage(message);
-const signer = ethers.utils.verifyMessage(message, signedMessage);
+const signature = await ethWallet.signMessage(message);
+const signer = ethers.utils.verifyMessage(message, signature);
 
 const form = new FormData();
 form.set("sender", sender);
 form.set("timestamp", timestamp);
-form.set("signedMessage", signedMessage);
+form.set("signature", signature);
 form.set("file", await fileFromPath('sample_upload.json'));
 
 fetch('http://localhost:3000/arweave/upload', {
