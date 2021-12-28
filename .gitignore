@@ -1,3 +1,4 @@
 node_modules/
 .env
 arweave_key.json
+uploads/

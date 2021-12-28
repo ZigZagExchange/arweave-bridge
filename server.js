@@ -1,9 +1,16 @@
 import express from 'express';
 import Arweave from 'arweave';
-import ExpressFileUpload from 'express-fileupload';
 import * as Redis from 'redis';
-import arweaveKey from './arweave_key';
+import fsPromises from 'fs/promises';
+import multer from 'multer';
+import dotenv from 'dotenv';
 
+dotenv.config();
+
+const arweaveKey = JSON.parse(await fsPromises.readFile("arweave_key.json"));
+
+// Set up multer
+const upload = multer({ storage: multer.memoryStorage()});
 
 // Connect to Arweave
 const arweave = Arweave.init({
@@ -28,32 +35,42 @@ await redis.connect();
 
 // Application
 const app = express();
-app.use(ExpressFileUpload());
 
-app.get("/allocation/zksync", function (req, res) {
-    const address = req.params.address;
-    const allocation = await redis.get(`zksync:user:${address}:allocation`);
+app.get("/time", async function (req, res) {
+    const now = Date.now() / 1000 | 0;
+    return res.status(200).json({ "time": now });
+});
+
+app.get("/allocation/zksync", async function (req, res) {
+    const address = req.query.address;
+    const allocation = await redis.get(`zksync:user:${address}:allocation`) || 0;
     const response = { "remaining_bytes": allocation };
     return res.status(200).json(response);
-}
+});
 
-app.post("/arweave/upload", function (req, res) {
+app.post("/arweave/upload", upload.single('file'), async function (req, res) {
     if (!req.files || Object.keys(req.files).length === 0) {
         return res.status(400).send('No files were uploaded.');
     }
-    const file = req.files.file;
+    const file = req.file;
     const allocation = await redis.get(`zksync:user:${sender}:allocation`);
     if (!allocation || allocation < file.size) {
         return res.status(402).send(`Insufficient funds for upload. Current allocation size is ${allocation} bytes`);
     }
+
+    const signature = req.body.signedMessage;
+    const user = req.body.user;
+    const expectedMessage = `${user}:${timestamp}:${allocation}`;
     await redis.DECR(`zksync:user:${sender}:allocation`, file.size);
 
     let arweaveTx = await arweave.createTransaction({
-        data: file.data
+        data: file.buffer
     }, key);
     console.log(arweaveTx);
 
     const remainingAllocation = allocation - file.size;
     const response = { "arweave_txid": arweaveTx.id, "remaining_bytes": remainingAllocation };
     return res.status(200).json(response);
-}
+});
+
+app.listen(process.env.PORT || 3000);
