@@ -1,0 +1,20 @@
+{
+  "name": "zigzag-arweave-bridge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bridge.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "ethers": "^5.5.2",
+    "express": "^4.17.2",
+    "express-fileupload": "^1.2.1",
+    "redis": "^4.0.1",
+    "zksync": "^0.11.6"
+  }
+}
