@@ -86,7 +86,7 @@ app.post("/arweave/upload", upload.single('file'), async function (req, res) {
     //}
 
     // Decrease allocation
-    await redis.DECR(`zksync:user:${sender}:allocation`, file.size);
+    await redis.DECRBY(`zksync:user:${sender}:allocation`, file.size);
 
     const arweaveTx = await arweave.createTransaction({
         data: file.buffer
