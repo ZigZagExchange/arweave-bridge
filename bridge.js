@@ -36,23 +36,13 @@ if (lastProcessedDate.getTime() < now.getTime() - thirty_sec_ms) {
 }
 
 // Connect to ETH + Zksync
-let syncWallet, syncProvider, ethWallet;
+let syncProvider;
 const ethersProvider = new ethers.providers.InfuraProvider(
     process.env.ETH_NETWORK,
     process.env.INFURA_PROJECT_ID,
 );
 try {
     syncProvider = await zksync.getDefaultRestProvider(process.env.ETH_NETWORK);
-    ethWallet = new ethers.Wallet(process.env.ETH_PRIVKEY, ethersProvider);
-    syncWallet = await zksync.Wallet.fromEthSigner(ethWallet, syncProvider);
-    if (!(await syncWallet.isSigningKeySet())) {
-        console.log("setting sign key");
-        const signKeyResult = await syncWallet.setSigningKey({
-            feeToken: "ETH",
-            ethAuthType: "ECDSA",
-        });
-        console.log(signKeyResult);
-    }
 } catch (e) {
     console.log(e);
     throw new Error("Could not connect to zksync API");
@@ -65,7 +55,6 @@ for (let i in SUPPORTED_TOKEN_IDS) {
     const id = SUPPORTED_TOKEN_IDS[i];
     const details = await syncProvider.tokenInfo(id);
     TOKEN_DETAILS[id] = details;
-    console.log(details);
 }
 
 
@@ -145,7 +134,7 @@ async function processNewWithdraws() {
             continue;
         }
         
-        // Last processed > timestamp ? Unexpected behavior. Mark as processed and don't send funds. 
+        // Last processed > timestamp ? Unexpected behavior. Mark as processed and don't apply funds. 
         if (lastProcessedDate.getTime() > timestamp.getTime()) {
             console.log("Timestamp before last processed. Tx got skipped");
             await redis.set(`zksync:bridge:${txhash}:processed`, 1);
@@ -154,18 +143,9 @@ async function processNewWithdraws() {
         
         // Token is not supported ? Mark as processed and continue
         if (!SUPPORTED_TOKEN_IDS.includes(tokenId)) {
-            console.log("transaction from unsupported token");
-            console.log("Returning funds");
+            console.log("Transaction from unsupported token", tx);
             await redis.set(`zksync:bridge:${txhash}:processed`, 1);
             await redis.set("zksync:bridge:lastProcessedTimestamp", tx.createdAt);
-            const refundTransaction = await syncWallet.syncTransfer({
-                to: sender,
-                token: tokenId,
-                amount,
-                feeToken: 'ETH'
-            });
-            const receipt = await refundTransaction.awaitReceipt();
-            console.log(refundTransaction);
             continue;
         }
         
@@ -177,8 +157,8 @@ async function processNewWithdraws() {
         await redis.set("zksync:bridge:lastProcessedTimestamp", tx.createdAt);
             
         // Mark the user as having funds ready to use on Arweave
-        const dollarValue = Math.round(amount / TOKEN_DETAILS[tokenId].decimals, 2);
+        const dollarValue = (amount / 10**TOKEN_DETAILS[tokenId].decimals).toFixed(2);
         const bytes = dollarValue * 1e6;
-        await redis.INCR(`zksync:user:${sender}:allocation`, bytes);
+        await redis.INCRBY(`zksync:user:${sender}:allocation`, bytes);
     }
 }
