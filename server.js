@@ -4,6 +4,7 @@ import * as Redis from 'redis';
 import fsPromises from 'fs/promises';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import ethers from 'ethers';
 
 dotenv.config();
 
@@ -50,40 +51,40 @@ app.get("/allocation/zksync", async function (req, res) {
 
 app.post("/arweave/upload", upload.single('file'), async function (req, res) {
     if (!req.file) {
-        return res.status(400).send('No files were uploaded.');
+        return res.status(400).send({ error: 'No files were uploaded.'});
     }
     if (!req.body.sender) {
-        return res.status(400).send('sender is missing');
+        return res.status(400).send({ error: 'sender is missing' });
     }
     const sender = req.body.sender.toLowerCase();
     const file = req.file;
     const allocation = await redis.get(`zksync:user:${sender}:allocation`) || 0;
     if (!allocation || allocation < file.size) {
-        return res.status(402).send(`Insufficient funds for upload. Current allocation size is ${allocation} bytes`);
+        return res.status(402).send({ error: `Insufficient funds for upload. Current allocation size is ${allocation} bytes` });
     }
 
     const signature = req.body.signedMessage;
     const timestamp = parseInt(req.body.timestamp) || 0;
     const now = Date.now();
     if (Math.abs(timestamp - now) > 30000) {
-        return res.status(400).send('Timestamp is out of date. Check GET /time for server time');
+        return res.status(400).send({ error: 'Timestamp is out of date. Check GET /time for server time'});
     }
     
     // Replay protection
     const alreadyUploaded = await redis.GET(`zkysnc:arweave:upload:${sender}:${timestamp}`);
     if (alreadyUploaded) {
-        return res.status(400).send('Cannot re-use timestamp. Generate a new one.');
+        return res.status(400).send({ error: 'Cannot re-use timestamp. Generate a new one.'});
     }
     await redis.SET(`zkysnc:arweave:upload:${sender}:${timestamp}`, 1);
     await redis.EXPIRE(`zkysnc:arweave:upload:${sender}:${timestamp}`, 600);
 
 
     // Verify signature
-    //const expectedMessage = `${sender}:${timestamp}`;
-    //const signingAddress = ethers.utils.verifyMessage(expectedMessage, signature);
-    //if (signingAddress !== sender) {
-    //    return res.status(400).send('Bad signature');
-    //}
+    const expectedMessage = `${req.body.sender}:${timestamp}`;
+    const signingAddress = ethers.utils.verifyMessage(expectedMessage, signature);
+    if (signingAddress.toLowerCase() !== sender) {
+        return res.status(400).send({ error: 'Bad signature'});
+    }
 
     // Decrease allocation
     await redis.DECRBY(`zksync:user:${sender}:allocation`, file.size);
