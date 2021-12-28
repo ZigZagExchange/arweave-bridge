@@ -14,9 +14,9 @@ const upload = multer({ storage: multer.memoryStorage()});
 
 // Connect to Arweave
 const arweave = Arweave.init({
-    host: '127.0.0.1',
-    port: 1984,
-    protocol: 'http'
+    host: 'arweave.net',
+    port: 443,
+    protocol: 'https'
 });
 
 // Connect to Redis
@@ -42,30 +42,61 @@ app.get("/time", async function (req, res) {
 });
 
 app.get("/allocation/zksync", async function (req, res) {
-    const address = req.query.address;
+    const address = req.query.address.toLowerCase();
     const allocation = await redis.get(`zksync:user:${address}:allocation`) || 0;
     const response = { "remaining_bytes": allocation };
     return res.status(200).json(response);
 });
 
 app.post("/arweave/upload", upload.single('file'), async function (req, res) {
-    if (!req.files || Object.keys(req.files).length === 0) {
+    if (!req.file) {
         return res.status(400).send('No files were uploaded.');
     }
+    if (!req.body.sender) {
+        return res.status(400).send('sender is missing');
+    }
+    const sender = req.body.sender.toLowerCase();
     const file = req.file;
-    const allocation = await redis.get(`zksync:user:${sender}:allocation`);
+    const allocation = await redis.get(`zksync:user:${sender}:allocation`) || 0;
     if (!allocation || allocation < file.size) {
         return res.status(402).send(`Insufficient funds for upload. Current allocation size is ${allocation} bytes`);
     }
 
     const signature = req.body.signedMessage;
-    const user = req.body.user;
-    const expectedMessage = `${user}:${timestamp}:${allocation}`;
+    const timestamp = parseInt(req.body.timestamp) || 0;
+    const now = Date.now();
+    if (Math.abs(timestamp - now) > 30000) {
+        return res.status(400).send('Timestamp is out of date. Check GET /time for server time');
+    }
+    
+    // Replay protection
+    const alreadyUploaded = await redis.GET(`zkysnc:arweave:upload:${sender}:${timestamp}`);
+    if (alreadyUploaded) {
+        return res.status(400).send('Cannot re-use timestamp. Generate a new one.');
+    }
+    await redis.SET(`zkysnc:arweave:upload:${sender}:${timestamp}`, 1);
+    await redis.EXPIRE(`zkysnc:arweave:upload:${sender}:${timestamp}`, 600);
+
+
+    // Verify signature
+    //const expectedMessage = `${sender}:${timestamp}`;
+    //const signingAddress = ethers.utils.verifyMessage(expectedMessage, signature);
+    //if (signingAddress !== sender) {
+    //    return res.status(400).send('Bad signature');
+    //}
+
+    // Decrease allocation
     await redis.DECR(`zksync:user:${sender}:allocation`, file.size);
 
-    let arweaveTx = await arweave.createTransaction({
+    const arweaveTx = await arweave.createTransaction({
         data: file.buffer
-    }, key);
+    }, arweaveKey);
+    const signedTx = await arweave.transactions.sign(arweaveTx, arweaveKey);
+    let uploader = await arweave.transactions.getUploader(arweaveTx);
+    while (!uploader.isComplete) {
+      await uploader.uploadChunk();
+      console.log(`${uploader.pctComplete}% complete, ${uploader.uploadedChunks}/${uploader.totalChunks}`);
+    }
     console.log(arweaveTx);
 
     const remainingAllocation = allocation - file.size;
