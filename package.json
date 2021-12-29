@@ -10,6 +10,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "arweave": "^1.10.22",
     "dotenv": "^10.0.0",
     "ethers": "^5.5.2",
     "express": "^4.17.2",
