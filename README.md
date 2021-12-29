@@ -22,7 +22,9 @@ Funds sent here will top up your allocation at a rate of 1 MB / dollar. Once the
 
 ```
 curl https://zigzag-arweave-bridge.herokuapp.com/allocation/zksync?address=0x1998CA1E0e9D4a767359464dee60D15daa372cd1
+```
 
+```
 {"remaining_bytes":"100001"}
 ```
 
@@ -35,7 +37,9 @@ Check the [upload example](upload_example.js) for a full working example.
 
 ```
 curl -X POST https://zigzag-arweave-bridge.herokuapp.com/arweave/upload -H 'Content-Type: multipart/form-data' -F sender=0x1998CA1E0e9D4a767359464dee60D15daa372cd1 -F file=@sample_upload.json -F timestamp=1640714043470 -F signature=0xaaaaaaaaaa2972bcc1c5768bf2b28d4680957841ffcfe69cf8e7f8fde6c21f7a031dbe0d44969c84a251daa2c74f82e0a398b61e5a8a36c8e6e950badc57553c1c
+```
 
+```
 {
   "arweave_txid": "OCF7B7wpxaaRMG0EAEL1byTc3hka0lZtE2IRR_qtwdU",
   "remaining_bytes": 98974
@@ -48,6 +52,8 @@ curl -X POST https://zigzag-arweave-bridge.herokuapp.com/arweave/upload -H 'Cont
 
 ```
 curl https://zigzag-arweave-bridge.herokuapp.com/time
+```
 
+```
 {"time":1640688523}
 ```
