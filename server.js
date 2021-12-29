@@ -1,14 +1,13 @@
 import express from 'express';
 import Arweave from 'arweave';
 import * as Redis from 'redis';
-import fsPromises from 'fs/promises';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import ethers from 'ethers';
 
 dotenv.config();
 
-const arweaveKey = JSON.parse(await fsPromises.readFile("arweave_key.json"));
+const arweaveKey = JSON.parse(process.env.ARWEAVE_KEY);
 
 // Set up multer
 const upload = multer({ storage: multer.memoryStorage()});
