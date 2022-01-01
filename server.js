@@ -36,6 +36,12 @@ await redis.connect();
 // Application
 const app = express();
 
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 app.get("/time", async function (req, res) {
     const now = Date.now() / 1000 | 0;
     return res.status(200).json({ "time": now });
