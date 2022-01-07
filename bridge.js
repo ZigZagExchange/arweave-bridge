@@ -59,7 +59,6 @@ for (let i in SUPPORTED_TOKEN_IDS) {
 
 
 processNewWithdraws()
-setInterval(processNewWithdraws, 5000);
 
 async function processNewWithdraws() {
     const account_txs = await syncProvider.accountTxs(process.env.ZKSYNC_BRIDGE_ADDRESS, {
@@ -161,4 +160,6 @@ async function processNewWithdraws() {
         const bytes = dollarValue * 1e6;
         await redis.INCRBY(`zksync:user:${sender}:allocation`, bytes);
     }
+
+    setTimeout(processNewWithdraws, 5000);
 }
